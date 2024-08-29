@@ -40,6 +40,9 @@ namespace RazorERPTest.Controllers
         [HttpPut("UpdateUser/{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] User user)
         {
+            string hashedPassword = BCrypt.Net.BCrypt.HashPassword(user.PasswordHash);
+            user.PasswordHash = hashedPassword;
+
             user.Id = id;
             var updated = await _userRepository.UpdateUserAsync(user);
             if (updated)

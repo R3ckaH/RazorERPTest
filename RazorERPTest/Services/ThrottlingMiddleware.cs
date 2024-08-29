@@ -1,5 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.IdentityModel.Tokens;
 using System.Collections.Concurrent;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace RazorERPTest.Services
@@ -10,10 +14,12 @@ namespace RazorERPTest.Services
         private static readonly ConcurrentDictionary<string, UserRequestCount> _requests = new();
         private const int _requestLimit = 10; // Limit to 10 requests per minute
         private const int _timeWindowInSeconds = 60;
+        private readonly IConfiguration _configuration;
 
-        public ThrottlingMiddleware(RequestDelegate next)
+        public ThrottlingMiddleware(RequestDelegate next, IConfiguration configuration)
         {
             _next = next;
+            _configuration = configuration;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -25,6 +31,18 @@ namespace RazorERPTest.Services
                 await _next(context);
                 return;
             }
+
+            var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
+
+            if (token != null)
+            {
+                var userPrincipal = ValidateToken(token);
+                if (userPrincipal != null)
+                {
+                    context.User = userPrincipal;
+                }
+            }
+
 
             var userRequestCount = _requests.GetOrAdd(userId, new UserRequestCount());
 
@@ -47,6 +65,41 @@ namespace RazorERPTest.Services
             }
 
             await _next(context);
+        }
+
+        private ClaimsPrincipal ValidateToken(string token)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:IssuerSigningKey"]);
+
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = true,
+                    ValidIssuer = _configuration["Jwt:Issuer"],
+                    ValidateAudience = true,
+                    ValidAudience = _configuration["Jwt:Audience"],
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                var principal = tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
+
+                // Check if the token is a valid JWT token
+                if (validatedToken is JwtSecurityToken jwtToken && jwtToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    return principal; // This principal is now authenticated
+                }
+            }
+            catch
+            {
+                // Token validation failed
+            }
+
+            return null; // Return null if validation fails
         }
     }
 

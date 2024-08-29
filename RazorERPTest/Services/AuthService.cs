@@ -21,9 +21,9 @@ namespace RazorERPTest.Services
         public async Task<string> AuthenticateAsync(LoginRequest loginRequest)
         {
             var user = await _userRepository.GetUserByUsernameAsync(loginRequest.Username);
-            //if (user == null) || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash)){
-            //    return null; // Authentication failed
-            //}
+            if (user == null || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash)){
+                return null; // Authentication failed
+            }
 
             var claims = new[]
             {
@@ -37,8 +37,8 @@ namespace RazorERPTest.Services
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:XIssuer"],
-                audience: _configuration["Jwt:XAudience"],
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
                 claims: claims,
                 expires: DateTime.Now.AddMinutes(30),
                 signingCredentials: creds);

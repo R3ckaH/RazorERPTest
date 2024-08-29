@@ -21,7 +21,7 @@ namespace RazorERPTest.Repositories
             parameters.Add("PasswordHash", user.PasswordHash);
             parameters.Add("Role", user.Role);
             parameters.Add("CompanyId", user.CompanyId);
-            parameters.Add("IsActive", true);
+
 
             return await connection.ExecuteScalarAsync<int>(
                 "spCreateUser", parameters, commandType: CommandType.StoredProcedure);
