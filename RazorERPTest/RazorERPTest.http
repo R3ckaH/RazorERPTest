@@ -1,0 +1,6 @@
+@RazorERPTest_HostAddress = http://localhost:5139
+
+GET {{RazorERPTest_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
